@@ -2,19 +2,22 @@ import subprocess
 
 STUDENT_ID = "66070216"
 
+
 def showrun():
-    command = ['ansible-playbook', '-i', 'hosts', '-e', f'student_id={STUDENT_ID}', 'playbook.yaml']
+    playbook_file = 'showrun_playbook.yaml'
+    command = ['ansible-playbook', '-e', f'student_id={STUDENT_ID}', playbook_file]
+    
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        if 'failed=0' in result.stdout:
+        result = subprocess.run(command, capture_output=True, text=True, check=True, stdin=subprocess.PIPE)
+        output = result.stdout
+        
+        if 'failed=0' in output and 'unreachable=0' in output:
             print("Ansible playbook ran successfully.")
-            return "ok"
+            return 'ok'
         else:
-            print("Ansible playbook failed.")
-            print(result.stderr)
-            return "Error: Ansible"
+            print(f"Ansible playbook failed. Error: {result.stderr}")
+            return 'Error: Ansible'
             
     except subprocess.CalledProcessError as e:
-        print("Error running ansible-playbook command.")
-        print(e.stderr)
-        return "Error: Ansible"
+        print(f"Error executing ansible-playbook. Stderr: {e.stderr}")
+        return 'Error: Ansible'

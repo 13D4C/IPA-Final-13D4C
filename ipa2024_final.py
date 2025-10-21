@@ -23,7 +23,7 @@ ACCESS_TOKEN = os.getenv("WEBEX_ACCESS_TOKEN")
 #######################################################################################
 # 3. Prepare parameters
 
-WEBEX_ROOM_ID = "Y2lzY29zcGFyazovL3VybjpURUFNOnVzLXdlc3QtMl9yL1JPT00vYmQwODczMTAtNmMyNi0xMWYwLWE1MWMtNzkzZDM2ZjZjM2Zm"
+WEBEX_ROOM_ID = "Y2lzY29zcGFyazovL3VybjpURUFNOnVzLXdlc3QtMl9yL1JPT00vNjgyY2JkNTAtNmM2My0xMWYwLThlOWMtZTc0YzljNTJiNTY5"
 STUDENT_ID = "66070216"
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 

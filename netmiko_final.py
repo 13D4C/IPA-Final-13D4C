@@ -2,7 +2,7 @@ from netmiko import ConnectHandler
 from pprint import pprint
 
 
-device_ip = "10.0.15.61" 
+device_ip = "10.0.15.62" 
 
 
 username = "admin"

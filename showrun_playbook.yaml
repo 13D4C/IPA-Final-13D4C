@@ -1,0 +1,20 @@
+---
+- name: BACKUP RUNNING CONFIG
+  hosts: all 
+  gather_facts: false
+  connection: network_cli
+  collections:
+    - cisco.ios
+
+  tasks:
+   - name: DISPLAY RUNNING CONFIG
+     ios_command:
+       commands:
+         - show running-config
+     register: config
+
+   - name: SAVE OUTPUT TO FILE
+     copy:
+       content: "{{ config.stdout[0] }}"
+       dest: "./show_run_{{ student_id }}_{{ inventory_hostname }}.txt"
+     delegate_to: localhost
