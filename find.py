@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get your Webex Access Token from the .env file
-ACCESS_TOKEN = os.getenv("WEBEX_ACCESS_TOKEN")
+ACCESS_TOKEN = os.getenv("WEBX_ACCESS_TOKEN")
 
 # Check if the token exists
 if not ACCESS_TOKEN:

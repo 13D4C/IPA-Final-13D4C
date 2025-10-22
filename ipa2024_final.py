@@ -1,95 +1,131 @@
 #######################################################################################
-# Yourname: 13D4C
+# Yourname: Atibodee Kuiprasert
 # Your student ID: 66070216
-# Your GitHub Repo: https://github.com/13D4C/IPA-Final-13D4C
-
+#
+# *** นี่คือเวอร์ชันที่แก้ไข I/O Error แล้ว ***
 #######################################################################################
+
 # 1. Import libraries
-import os, time, json, requests
+import os
+import time
+import json
+import requests
+import glob
 from dotenv import load_dotenv
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
-# Import modules
-import restconf_final 
-import netmiko_final
-import ansible_final
-
-load_dotenv() 
-
+# Import functions from other modules
+from restconf_final import create_interface, delete_interface, enable_interface, disable_interface, get_interface_status
+from netmiko_final import get_gigabit_interfaces_status
+from ansible_final import run_show_command
 #######################################################################################
-# 2. Assign Webex access token
-ACCESS_TOKEN = os.getenv("WEBEX_ACCESS_TOKEN")
 
-#######################################################################################
-# 3. Prepare parameters
-
-WEBEX_ROOM_ID = "Y2lzY29zcGFyazovL3VybjpURUFNOnVzLXdlc3QtMl9yL1JPT00vNjgyY2JkNTAtNmM2My0xMWYwLThlOWMtZTc0YzljNTJiNTY5"
+# 2. Load environment variables
+load_dotenv()
+ACCESS_TOKEN = os.environ.get("WEBX_ACCESS_TOKEN")
+ROOM_ID = os.environ.get("ROOM_ID")
 STUDENT_ID = "66070216"
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#######################################################################################
 
-if not ACCESS_TOKEN or not WEBEX_ROOM_ID or "YOUR" in WEBEX_ROOM_ID:
-    print("FATAL: Please set WEBEX_ACCESS_TOKEN in .env and edit WEBEX_ROOM_ID in the script.")
-    exit()
-
-print("Bot started... Listening for commands.")
+# 3. Main loop
+print("Bot is running... Waiting for commands.")
 while True:
-    time.sleep(1)
-    getParameters = {"roomId": WEBEX_ROOM_ID, "max": 1}
-    getHTTPHeader = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+    time.sleep(1) 
 
-# 4. Get the latest message
+    get_parameters = {"roomId": ROOM_ID, "max": 1}
+    http_headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+
     try:
-        r = requests.get("https://webexapis.com/v1/messages", params=getParameters, headers=getHTTPHeader)
-        if not r.status_code == 200:
-            print(f"Error getting message: {r.status_code}")
-            continue
+        response = requests.get(
+            "https://webexapis.com/v1/messages",
+            params=get_parameters,
+            headers=http_headers,
+        )
+        response.raise_for_status()
 
-        json_data = r.json()
-        if not json_data["items"]:
-            continue
+        json_data = response.json()
+        if not json_data.get("items"):
+            continue 
 
-        message = json_data["items"][0]["text"]
+        latest_message = json_data["items"][0]["text"]
         
-        # Check if the message is a command for our bot
-        magic_word = f"/{STUDENT_ID} "
-        if not message.startswith(magic_word):
-            continue
+        # We only process new commands, not the bot's own responses.
+        if latest_message.startswith(f"/{STUDENT_ID}"):
+            print(f"Received message: {latest_message}")
+            command = latest_message.split()[-1]
+            print(f"Executing command: {command}")
+            response_message = "" 
 
-        print(f"Received message: {message}")
-        command = message.split(" ")[1].strip()
-        print(f"Executing command: '{command}'")
+            # 5. Execute command
+            if command == "create":
+                response_message = create_interface()
+            elif command == "delete":
+                response_message = delete_interface()
+            elif command == "enable":
+                response_message = enable_interface()
+            elif command == "disable":
+                response_message = disable_interface()
+            elif command == "status":
+                response_message = get_interface_status()
+            elif command == "gigabit_status":
+                response_message = get_gigabit_interfaces_status()
+            elif command == "showrun":
+                response_message = run_show_command()
+            else:
+                response_message = "Error: Unknown command."
 
-# 5. Execute command
-        responseMessage = ""
-        if command == "create": responseMessage = restconf_final.create()
-        elif command == "delete": responseMessage = restconf_final.delete()
-        elif command == "enable": responseMessage = restconf_final.enable()
-        elif command == "disable": responseMessage = restconf_final.disable()
-        elif command == "status": responseMessage = restconf_final.status()
-        elif command == "gigabit_status": responseMessage = netmiko_final.gigabit_status()
-        elif command == "showrun": responseMessage = ansible_final.showrun()
-        else: responseMessage = "Error: Unknown command"
-        
-        print(f"Response to send: {responseMessage}")
+            # 6. Post the response
+            # --- START OF THE FIX ---
+            if command == "showrun" and response_message == 'ok':
+                run_files = glob.glob("show_run_*.txt")
+                if not run_files:
+                    response_message = "Error: showrun file not found."
+                else:
+                    latest_file = max(run_files, key=os.path.getctime)
+                    
+                    # Open the file and send the request INSIDE this 'with' block
+                    with open(latest_file, "rb") as file_content:
+                        multipart_data = MultipartEncoder({
+                            "roomId": ROOM_ID,
+                            "text": "Here is the running configuration:",
+                            "files": (os.path.basename(latest_file), file_content, "text/plain"),
+                        })
+                        
+                        post_headers = {
+                            "Authorization": f"Bearer {ACCESS_TOKEN}",
+                            "Content-Type": multipart_data.content_type
+                        }
+                        
+                        # The POST request is now INSIDE the 'with' block
+                        requests.post(
+                            "https://webexapis.com/v1/messages",
+                            data=multipart_data,
+                            headers=post_headers
+                        ).raise_for_status()
+                    
+                    print("File sent successfully.")
+                    # We set response_message to None because the file has already been sent
+                    response_message = None 
+            
+            # If response_message is not None, send it as a simple text message
+            if response_message:
+                post_headers = {
+                    "Authorization": f"Bearer {ACCESS_TOKEN}",
+                    "Content-Type": "application/json"
+                }
+                post_data = json.dumps({"roomId": ROOM_ID, "text": response_message})
+                requests.post(
+                    "https://webexapis.com/v1/messages",
+                    data=post_data,
+                    headers=post_headers
+                ).raise_for_status()
+                print(f"Text response '{response_message}' sent successfully.")
 
-# 6. Post response to Webex
-        postHTTPHeaders = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        
-        if command == "showrun" and responseMessage == 'ok':
-            filename = f"show_run_{STUDENT_ID}_csr1kv.txt"
-            m = MultipartEncoder(
-                fields={"roomId": WEBEX_ROOM_ID, "text": "Show running-config result:",
-                        "files": (filename, open(filename, 'rb'), 'text/plain')}
-            )
-            postData = m
-            postHTTPHeaders["Content-Type"] = m.content_type
-        else:
-            postData = json.dumps({"roomId": WEBEX_ROOM_ID, "text": responseMessage})
-            postHTTPHeaders["Content-Type"] = "application/json"
+            # To avoid re-processing the same command, we need a way to mark it as done.
+            # A simple approach is to assume the last message is the one we just processed.
+            # In a real-world bot, you'd track message IDs.
 
-        r = requests.post("https://webexapis.com/v1/messages", data=postData, headers=postHTTPHeaders)
-        if not r.status_code == 200:
-            print(f"Error posting message: {r.status_code} {r.text}")
-
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred with the Webex API request: {e}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An unexpected error occurred: {e}")

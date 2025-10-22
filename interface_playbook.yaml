@@ -1,0 +1,17 @@
+- name: Fetch and Save Router Running Configuration
+  hosts: router1
+  connection: network_cli
+  gather_facts: false
+
+  tasks:
+    - name: Execute 'show running-config' on the router
+      cisco.ios.ios_command:
+        commands:
+          - show running-config
+      register: config_output
+    
+    - name: Save the configuration to a local file
+      ansible.builtin.copy:
+        content: "{{ config_output.stdout[0] }}"
+        dest: "./show_run_66070216_router1.txt"
+      delegate_to: localhost
